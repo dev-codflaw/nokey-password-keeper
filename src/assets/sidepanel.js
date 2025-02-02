@@ -11,6 +11,8 @@ document.addEventListener("alpine:init", () => {
       // entry point
       init() {
         this.initApp();
+        this.setupEventDelegation(); // Set up event delegation
+
       },
       // initialize app and  create a db connection
       initApp() {
@@ -76,8 +78,66 @@ document.addEventListener("alpine:init", () => {
               <span class="material-icons" x-on:click="copytoclipboard" spwdata="${record.password}">content_copy</span>
             </button>
           </div>
+          <button class="delete-btn" data-action="delete" data-id="${record.id}">
+            <span class="material-icons">delete</span>
+          </button>
+
         </div>
         `;
+      },
+     // Set up event delegation
+     setupEventDelegation() {
+      const self = this;
+      document.addEventListener("click", (event) => {
+        const target = event.target.closest("[data-action]");
+        if (!target) return;
+
+        const action = target.getAttribute("data-action");
+        const id = target.getAttribute("data-id");
+        const value = target.getAttribute("data-value");
+
+        switch (action) {
+          case "copy":
+            self.copytoclipboard(value);
+            break;
+          case "delete":
+            self.deleteEntry(Number(id));
+            break;
+          case "edit":
+            self.editEntry(Number(id));
+            break;
+        }
+      });
+    },
+
+    // Delete entry
+    deleteEntry(id) {
+      const pwListStore = this.dbConnection
+        .transaction("pwlist", "readwrite")
+        .objectStore("pwlist");
+
+      const deleteRequest = pwListStore.delete(id);
+      deleteRequest.onsuccess = () => {
+        this.initAppData(); // Refresh the list after deletion
+      };
+    },
+
+      // search records
+      filterEntries() {
+        const searchTerm = document.getElementById('search').value.toLowerCase();
+        const pwListStore = this.dbConnection
+          .transaction("pwlist", "readonly")
+          .objectStore("pwlist");
+
+        pwListStore.getAll().onsuccess = (event) => {
+          let pwList = event.target.result.reverse();
+          let filteredList = pwList.filter(record =>
+            record.name.toLowerCase().includes(searchTerm) ||
+            record.user.toLowerCase().includes(searchTerm) ||
+            (record.url && record.url.toLowerCase().includes(searchTerm))
+          );
+          this.spm_pwlist_html = filteredList.map(record => this.renderRecord(record)).join('');
+        };
       },
       // add new record
       addNew(e) {

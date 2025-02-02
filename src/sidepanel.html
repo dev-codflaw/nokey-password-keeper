@@ -11,18 +11,25 @@
         <div class="container">
             <header>
               <h1>NoKey - A Stupid Password Keeper</h1>
-              <!-- <input type="text" id="search" placeholder="Search..."> -->
+              <input type="text" id="search" placeholder="Search..." x-on:input="filterEntries">
             </header>
             <main>
-                <section class="action-bar">
+                <!-- <section class="action-bar">
                     <button class="add-entry" x-on:click="showModal">
                       <span class="material-icons">add</span> Add New Entry
                     </button>
-                </section>
+                </section> -->
+
                 <section class="list-container">
                     <div class="list" x-html="spm_pwlist_html">
                     </div>
                 </section>
+
+                <!-- Floating Action Button (FAB) -->
+                <button class="fab" x-on:click="showModal">
+                    <span class="material-icons">add</span>
+                </button>
+
                 <section class="addnew-modal-container" x-show="isModalOpen">
                     <div class="overlay" id="overlay"></div>
                     <div class="modal" id="modal" @click.away="hideModal">
