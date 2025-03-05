@@ -16,5 +16,22 @@
   "side_panel": {
     "default_path": "sidepanel.html"
   },
-  "permissions": ["sidePanel"]
+  "permissions": [
+    "sidePanel",
+    "identity",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://www.googleapis.com/*"
+  ],
+  "oauth2": {
+    "client_id": "294743966234-9n526gohoqfe3ke6d0r3qo29a4bn07tn.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/drive.file"
+    ]
+  },
+"content_security_policy": {
+  "extension_pages": "default-src 'self'; script-src 'self'; connect-src 'self' https://www.googleapis.com; object-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com"
+}
+
 }

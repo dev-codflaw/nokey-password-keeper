@@ -8,72 +8,71 @@ document.addEventListener("alpine:init", () => {
       showError: false,
       showSuccess: false,
 
-      // entry point
-      init() {
-        this.initApp();
+      async init() {
+        await this.initApp();
       },
-      // initialize app and  create a db connection
+
+      // initialize app and create a db connection
       initApp() {
-        const dbName = this.dbName;
-        const request = indexedDB.open(dbName, 1);
-        request.onerror = (event) => {
-          console.error(event.target.result);
-        };
-        request.onupgradeneeded = (event) => {
-          const db = event.target.result;
-          const objectStore = db.createObjectStore("pwlist", { keyPath: "id", autoIncrement:true });
-
-          // Create an index to search record by name. We may have duplicates
-          // so we can't use a unique index.
-          objectStore.createIndex("name", "name", { unique: false });
-
-          // Use transaction oncomplete to make sure the objectStore creation is
-          // finished before adding data into it.
-          objectStore.transaction.oncomplete = (event) => {
-            console.log("DB created successfully");
+        return new Promise((resolve, reject) => {
+          const request = indexedDB.open(this.dbName, 1);
+          request.onerror = (event) => {
+            console.error("Database error:", event.target.error);
+            reject(event.target.error);
           };
-        };
-        request.onsuccess = (event) => {
-          db = event.target.result;
-          this.dbConnection = db;
-          this.initAppData();
-        };
+          request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            const objectStore = db.createObjectStore("pwlist", { keyPath: "id", autoIncrement: true });
+            objectStore.createIndex("name", "name", { unique: false });
+            objectStore.transaction.oncomplete = () => {
+              console.log("DB created successfully");
+            };
+          };
+          request.onsuccess = (event) => {
+            const db = event.target.result;
+            this.dbConnection = db;
+            this.initAppData();
+            resolve();
+          };
+        });
       },
-      // fetch data from indexeddb and render HTML
+
+      // fetch data from IndexedDB and render HTML
       initAppData() {
-        let self = this;
-        self.spm_pwlist_html = "";
-        const pwListStore = self.dbConnection
-          .transaction("pwlist", "readwrite")
-          .objectStore("pwlist");
-        pwListStore.getAll().onsuccess = (event) => {
+        this.spm_pwlist_html = "";
+        const transaction = this.dbConnection.transaction("pwlist", "readonly");
+        const pwListStore = transaction.objectStore("pwlist");
+        pwListStore.getAll().onsuccess = async (event) => {
           let pwList = event.target.result.reverse();
+          let html = "";
           pwList.forEach((record) => {
-            self.spm_pwlist_html += self.renderRecord(record);
+            html += this.renderRecord(record);
           });
+          this.spm_pwlist_html = html;
         };
       },
-      // generate HTML for password DB
+
+      // generate HTML for a password record with escaped values
       renderRecord(record) {
-        let urlHtml = `<span class="name">${record.name}</span>`;
-        if (record.url !== undefined && record.url !== null && record.url !== '') {
-          urlHtml = `<span class="name"><a href="${record.url}" target="_blank">${urlHtml}</a></span>`;
+        let urlHtml = `<span class="name">${this.escapeHTML(record.name)}</span>`;
+        if (record.url && record.url.trim() !== '') {
+          urlHtml = `<span class="name"><a href="${this.escapeHTML(record.url)}" target="_blank">${urlHtml}</a></span>`;
         }
         return `
         <div class="entry" spwid="${record.id}">
           <div class="field">
             ${urlHtml}
             <button class="edit-btn">
-              <span class="material-icons" x-on:click="editEntry" data-spkdata='${JSON.stringify(record)}'>edit</span>
+              <span class="material-icons" x-on:click="editEntry" data-spkdata='${this.safeStringify(record)}'>edit</span>
             </button>
             <button class="delete-btn">
               <span class="material-icons" x-on:click="deleteEntry" data-id="${record.id}">delete</span>
             </button>
           </div>
           <div class="field">
-            <span>Username: ${record.user}</span>
+            <span>Username: ${this.escapeHTML(record.user)}</span>
             <button class="copy-btn">
-              <span class="material-icons" x-on:click="copytoclipboard" data-spkdata="${record.user}">content_copy</span>
+              <span class="material-icons" x-on:click="copytoclipboard" data-spkdata="${record.user}" data-type="user">content_copy</span>
             </button>
           </div>
           <div class="field">
@@ -82,48 +81,59 @@ document.addEventListener("alpine:init", () => {
               <span class="material-icons" x-on:click="togglePassword" data-spkdata="${record.password}">visibility</span>
             </button>
             <button class="copy-btn">
-              <span class="material-icons" x-on:click="copytoclipboard" data-spkdata="${record.password}">content_copy</span>
+              <span class="material-icons" x-on:click="copytoclipboard" data-spkdata="${record.password}" data-type="password">content_copy</span>
             </button>
           </div>
         </div>
         `;
       },
-      // add new record
-      saveEntry(e) {
-        let self = this;
-        if (!self.validateForm()) {
+
+      // add new or update existing record with encryption of the password
+      async saveEntry() {
+        if (!this.validateForm()) {
           return;
         }
 
-        let data = {
-          name: document.getElementById('name').value,
-          user: document.getElementById('user').value,
-          password: document.getElementById('password').value,
-          url: document.getElementById('url').value,
-        };
+        try {
+          const name = document.getElementById('name').value;
+          const user = document.getElementById('user').value;
+          const rawPassword = document.getElementById('password').value;
+          const url = document.getElementById('url').value;
+          const encryptedPassword = await encryptText(rawPassword);
 
-        let id = document.getElementById('id').value;
-        if (id !== undefined && id !== null && id !== '') {
-          data['id'] = parseInt(id);
+          let data = {
+            name: name,
+            user: user,
+            password: encryptedPassword,
+            url: url,
+          };
+
+          const idValue = document.getElementById('id').value;
+          if (idValue && idValue.trim() !== '') {
+            data['id'] = parseInt(idValue);
+          }
+
+          const transaction = this.dbConnection.transaction("pwlist", "readwrite");
+          const pwListStore = transaction.objectStore("pwlist");
+          const addRequest = pwListStore.put(data);
+          addRequest.onsuccess = () => {
+            this.showSuccess = true;
+            this.emptyForm();
+            this.initAppData();
+          };
+          addRequest.onerror = (event) => {
+            console.error("Error saving record:", event.target.error);
+          };
+        } catch (error) {
+          console.error("Encryption error:", error);
         }
-
-        const pwListStore = self.dbConnection
-          .transaction("pwlist", "readwrite")
-          .objectStore("pwlist");
-        let addRequest = pwListStore.put(data);
-        addRequest.onsuccess = function(event) {
-          self.showSuccess = true;
-          self.emptyForm();
-          self.initAppData();
-        };
       },
-      // search
+
+      // search records by name, user, or URL
       search() {
         const searchTerm = document.getElementById('search').value.toLowerCase();
-        const pwListStore = this.dbConnection
-          .transaction("pwlist", "readonly")
-          .objectStore("pwlist");
-
+        const transaction = this.dbConnection.transaction("pwlist", "readonly");
+        const pwListStore = transaction.objectStore("pwlist");
         pwListStore.getAll().onsuccess = (event) => {
           let pwList = event.target.result.reverse();
           let filteredList = pwList.filter(record =>
@@ -134,49 +144,56 @@ document.addEventListener("alpine:init", () => {
           this.spm_pwlist_html = filteredList.map(record => this.renderRecord(record)).join('');
         };
       },
-      // edit record
-      editEntry(e) {
-        let self = this;
-        var record = JSON.parse(e.target.getAttribute("data-spkdata"));
-        document.getElementById('id').value = record.id;
-        document.getElementById('name').value = record.name;
-        document.getElementById('user').value = record.user;
-        document.getElementById('password').value = record.password;
-        document.getElementById('url').value = record.url;
-        self.showModal();
+
+      // edit record; decrypt the password before populating the form
+      async editEntry(e) {
+        try {
+          const record = JSON.parse(e.target.getAttribute("data-spkdata"));
+          document.getElementById('id').value = record.id;
+          document.getElementById('name').value = record.name;
+          document.getElementById('user').value = record.user;
+          document.getElementById('url').value = record.url;
+          const decryptedPassword = await decryptText(record.password);
+          document.getElementById('password').value = decryptedPassword;
+          this.showModal();
+        } catch (error) {
+          console.error("Error editing record:", error);
+        }
       },
-      // delete record
+
+      // delete a record
       deleteEntry(e) {
         if (window.confirm("Are you sure?")) {
-          let self = this;
-          var id = parseInt(e.target.getAttribute("data-id"));
-          const pwListStore = self.dbConnection
-            .transaction("pwlist", "readwrite")
-            .objectStore("pwlist");
+          const id = parseInt(e.target.getAttribute("data-id"));
+          const transaction = this.dbConnection.transaction("pwlist", "readwrite");
+          const pwListStore = transaction.objectStore("pwlist");
           const deleteRequest = pwListStore.delete(id);
           deleteRequest.onsuccess = () => {
-            self.initAppData(); // Refresh the list after deletion
+            this.initAppData();
+          };
+          deleteRequest.onerror = (event) => {
+            console.error("Error deleting record:", event.target.error);
           };
         }
       },
-      // validate form
+
+      // validate required form fields
       validateForm() {
         this.showError = false;
         this.showSuccess = false;
         const isEmpty = str => !str.trim().length;
-        let name = document.getElementById('name');
-        let user = document.getElementById('user');
-        let password = document.getElementById('password');
+        const name = document.getElementById('name');
+        const user = document.getElementById('user');
+        const password = document.getElementById('password');
 
         if (isEmpty(name.value) || isEmpty(user.value) || isEmpty(password.value)) {
           this.showError = true;
           return false;
         }
-
-        this.showError = false;
         return true;
       },
-      // empty form
+
+      // clear form fields
       emptyForm() {
         document.getElementById('id').value = '';
         document.getElementById('name').value = '';
@@ -184,42 +201,143 @@ document.addEventListener("alpine:init", () => {
         document.getElementById('password').value = '';
         document.getElementById('url').value = '';
       },
-      // show modal
-      showModal(e) {
+
+      // show modal dialog for adding/editing
+      showModal() {
         this.showError = false;
         this.showSuccess = false;
         this.isModalOpen = true;
       },
-      // hide modal
-      hideModal(e) {
+
+      // hide modal dialog and clear form
+      hideModal() {
         this.showError = false;
         this.showSuccess = false;
         this.isModalOpen = false;
         this.emptyForm();
       },
-      // copy to clipboard
-      copytoclipboard(e) {
+
+      // copy to clipboard; decrypt if copying a password
+      async copytoclipboard(e) {
         const copyButton = e.target;
-        var text = copyButton.getAttribute("data-spkdata");
+        const dataType = copyButton.getAttribute("data-type");
+        let text = copyButton.getAttribute("data-spkdata");
+        if (dataType === "password") {
+          try {
+            text = await decryptText(text);
+          } catch (error) {
+            console.error("Error decrypting password for copy:", error);
+            return;
+          }
+        }
         navigator.clipboard.writeText(text);
         copyButton.innerHTML = 'done';
         setTimeout(() => {
-            copyButton.innerHTML = 'content_copy';
+          copyButton.innerHTML = 'content_copy';
         }, 2000);
       },
-      // toggle password
-      togglePassword(e) {
+
+      // toggle password visibility by decrypting and re-masking the display
+      async togglePassword(e) {
         const toggleButton = e.target;
-        var password = toggleButton.getAttribute("data-spkdata");
+        const encryptedPassword = toggleButton.getAttribute("data-spkdata");
         const passwordField = toggleButton.parentElement.previousElementSibling;
         if (passwordField.textContent.includes("••••••••")) {
-          passwordField.textContent = passwordField.textContent.replace("••••••••", password); // Replace with actual password
-          toggleButton.innerHTML = 'visibility_off';
+          try {
+            const decrypted = await decryptText(encryptedPassword);
+            passwordField.textContent = passwordField.textContent.replace("••••••••", decrypted);
+            toggleButton.innerHTML = 'visibility_off';
+          } catch (error) {
+            console.error("Error decrypting password:", error);
+          }
         } else {
-          passwordField.textContent = passwordField.textContent.replace(password, "••••••••"); // Replace with masked password
+          // Re-mask the password display (simply revert to mask)
+          passwordField.textContent = passwordField.textContent.replace(passwordField.textContent, "••••••••");
           toggleButton.innerHTML = 'visibility';
         }
+      },
+
+      // helper: escape HTML characters to prevent XSS
+      escapeHTML(str) {
+        if (!str) return "";
+        return str.replace(/[&<>'"]/g, tag => {
+          const chars = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            "'": '&#39;',
+            '"': '&quot;'
+          };
+          return chars[tag] || tag;
+        });
+      },
+
+      // helper: safely stringify an object for inclusion in data attributes
+      safeStringify(obj) {
+        return this.escapeHTML(JSON.stringify(obj));
       },
     };
   });
 });
+
+// --- Encryption Helper Functions Using Web Crypto API ---
+
+async function getKey() {
+  const password = "demoPassword"; // In production, derive this securely from user input
+  const salt = new TextEncoder().encode("uniqueSalt"); // Use a unique salt per user ideally
+  const keyMaterial = await window.crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveKey"]
+  );
+  return window.crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt: salt,
+      iterations: 100000,
+      hash: "SHA-256",
+    },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
+}
+
+async function encryptText(plaintext) {
+  const key = await getKey();
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const encoded = new TextEncoder().encode(plaintext);
+  const ciphertext = await window.crypto.subtle.encrypt(
+    {
+      name: "AES-GCM",
+      iv: iv,
+    },
+    key,
+    encoded
+  );
+  // Combine iv and ciphertext
+  const combined = new Uint8Array(iv.byteLength + ciphertext.byteLength);
+  combined.set(iv);
+  combined.set(new Uint8Array(ciphertext), iv.byteLength);
+  // Return as a Base64 string
+  return btoa(String.fromCharCode(...combined));
+}
+
+async function decryptText(data) {
+  const key = await getKey();
+  const combined = Uint8Array.from(atob(data), c => c.charCodeAt(0));
+  const iv = combined.slice(0, 12);
+  const ciphertext = combined.slice(12);
+  const decrypted = await window.crypto.subtle.decrypt(
+    {
+      name: "AES-GCM",
+      iv: iv,
+    },
+    key,
+    ciphertext
+  );
+  return new TextDecoder().decode(decrypted);
+}

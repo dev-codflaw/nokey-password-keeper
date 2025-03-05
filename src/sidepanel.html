@@ -1,52 +1,77 @@
 <!doctype html>
 <html>
-    <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <script defer nonce="a23gbfz9e" src="assets/alpine.min.js"></script>
-        <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-        <link media="all" rel="stylesheet" href="assets/styles.css"/>
-    </head>
-    <body x-data="spm" @keydown.escape="hideModal">
-        <div class="container">
-            <header>
-              <h1>NoKey - A Stupid Password Keeper</h1>
-              <input type="text" id="search" placeholder="Search..." x-on:input="search">
-            </header>
-            <main>
-                <section class="action-bar">
-                    <button class="add-entry" x-on:click="showModal">
-                      <span class="material-icons">add</span> Add New
-                    </button>
-                </section>
-                <section class="list-container">
-                    <div class="list" x-html="spm_pwlist_html">
-                    </div>
-                </section>
-                <section class="addnew-modal-container" x-show="isModalOpen">
-                    <div class="overlay" id="overlay"></div>
-                    <div class="modal" id="modal" @click.away="hideModal">
-                        <input id="id" type="hidden" placeholder="ID">
-                        <input id="name" type="text" placeholder="Enter Instance Name (Required)">
-                        <input id="user" type="text" placeholder="Enter Username (Required)">
-                        <input id="password" type="text" placeholder="Enter Password (Required)">
-                        <input id="url" type="text" placeholder="Enter Url (Optional)">
-                        <div class="error-message" x-show="showError">Please fill out all required fields.</div>
-                        <div class="success-message" x-show="showSuccess">Saved record successfully!</div>
-                        <button x-on:click="saveEntry">Save</button>
-                        <button @click="hideModal">Close</button>
-                    </div>
-                </section>
-            </main>
-
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="assets/styles.css">
+    <script defer src="assets/alpine.min.js"></script>
+  </head>
+  <body x-data="spm" @keydown.escape="hideModal">
+    <div class="container">
+      <header>
+        <!-- <h1>NoKey - A Stupid Password Keeper</h1> -->
+        <div id="themeSelector" class="theme-selector" style="display: flex; justify-content: center; gap: 10px;">
+          <button data-theme="theme-1" class="theme-btn" style="background-color: #3498db; width: 30px; height: 30px;"></button>
+          <button data-theme="theme-2" class="theme-btn" style="background-color: #e74c3c; width: 30px; height: 30px;"></button>
+          <button data-theme="theme-3" class="theme-btn" style="background-color: #9b59b6; width: 30px; height: 30px;"></button>
+          <button data-theme="theme-4" class="theme-btn" style="background-color: #1abc9c; width: 30px; height: 30px;"></button>
+          <button data-theme="theme-5" class="theme-btn" style="background-color: #e67e22; width: 30px; height: 30px;"></button>
+          <button data-theme="theme-6" class="theme-btn" style="background-color: #95a5a6; width: 30px; height: 30px;"></button>
         </div>
-        <footer>
-            <span>made with ❤️ by <a target="_blank" href="https://github.com/juashyam">juashyam</a>.</span>
-            <p class="disclaimer">
-                It is highly influenced by my personal usage, not ready for
-                production. Please feel free to use it at your discretion.
-            </p>
-        </footer>
-        <script src="assets/sidepanel.js"></script>
-    </body>
+        
+        <input type="text" id="search" placeholder="Search..." x-on:input="search">
+      </header>
+      <main>
+        <!-- Notification Area -->
+        <div id="notificationArea" class="hidden"></div>
+  
+        <!-- Sign-In Section -->
+        <section id="signInContainer" class="section-box">
+          <button id="signInBtn" class="btn primary">Sign in with Google</button>
+        </section>
+  
+        <!-- Backup/Restore Section (hidden until signed in) -->
+        <section id="backupRestoreContainer" class="section-box hidden">
+          <button id="backupBtn" class="btn">Backup to Google Drive</button>
+          <button id="restoreBtn" class="btn">Restore from Google Drive</button>
+          <div id="loader" class="loader hidden">Syncing...</div>
+        </section>
+  
+        <!-- Existing content -->
+        <section class="action-bar">
+          <button class="add-entry btn" x-on:click="showModal">
+            <span class="material-icons">add</span> Add New
+          </button>
+        </section>
+        <section class="list-container">
+          <div class="list" x-html="spm_pwlist_html"></div>
+        </section>
+        <section class="addnew-modal-container" x-show="isModalOpen">
+          <div class="overlay" id="overlay"></div>
+          <div class="modal" id="modal" @click.away="hideModal">
+            <input id="id" type="hidden" placeholder="ID">
+            <input id="name" type="text" placeholder="Enter Instance Name (Required)">
+            <input id="user" type="text" placeholder="Enter Username (Required)">
+            <input id="password" type="text" placeholder="Enter Password (Required)">
+            <input id="url" type="text" placeholder="Enter Url (Optional)">
+            <div class="error-message" x-show="showError">Please fill out all required fields.</div>
+            <div class="success-message" x-show="showSuccess">Saved record successfully!</div>
+            <button x-on:click="saveEntry" class="btn">Save</button>
+            <button @click="hideModal" class="btn">Close</button>
+          </div>
+        </section>
+      </main>
+      <footer>
+        <span>made with ❤️ by <a target="_blank" href="https://github.com/juashyam">juashyam</a>.</span>
+        <p class="disclaimer">
+          It is highly influenced by my personal usage, not ready for production. Please feel free to use it at your discretion.
+        </p>
+      </footer>
+  
+      <!-- Scripts: Notice the order: first driveBackup, then sidepanel -->
+      <script src="assets/driveBackup.js"></script>
+      <script src="assets/sidepanel.js"></script>
+    </div>
+  </body>
 </html>
