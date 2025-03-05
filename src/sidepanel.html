@@ -23,8 +23,7 @@
         <input type="text" id="search" placeholder="Search..." x-on:input="search">
       </header>
       <main>
-        <!-- Notification Area -->
-        <div id="notificationArea" class="hidden"></div>
+
   
         <!-- Sign-In Section -->
         <section id="signInContainer" class="section-box">
@@ -36,6 +35,8 @@
           <button id="backupBtn" class="btn">Backup to Google Drive</button>
           <button id="restoreBtn" class="btn">Restore from Google Drive</button>
           <div id="loader" class="loader hidden">Syncing...</div>
+        <!-- Notification Area -->
+        <div id="notificationArea" class="hidden"></div>
         </section>
   
         <!-- Existing content -->
@@ -63,6 +64,10 @@
         </section>
       </main>
       <footer>
+        <div class="list-count">
+          Total Entries: <span x-text="spm_pwlist_count"></span>
+      </div>
+      
         <span>made with ❤️ by <a target="_blank" href="https://github.com/juashyam">juashyam</a>.</span>
         <p class="disclaimer">
           It is highly influenced by my personal usage, not ready for production. Please feel free to use it at your discretion.

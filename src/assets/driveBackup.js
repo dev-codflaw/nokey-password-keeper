@@ -256,8 +256,10 @@ async function restoreData() {
           // ✅ Store the data in IndexedDB
           await replaceIndexedDBData(formattedData);
 
-          showNotification("Restore complete! Data updated.", 'success');
-          location.reload(); // Refresh after restoring
+            showNotification("Restore complete! Data updated.", 'success');
+            setTimeout(() => {
+              location.reload(); // Refresh after restoring
+            }, 3000); // Delay of 3 seconds
       } catch (error) {
           console.error("Invalid backup format:", error);
           alert("Backup format is incorrect. Restore failed.");

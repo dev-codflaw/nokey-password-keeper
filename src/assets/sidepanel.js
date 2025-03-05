@@ -4,6 +4,7 @@ document.addEventListener("alpine:init", () => {
       dbName: "juasnpk",
       dbConnection: null,
       spm_pwlist_html: "",
+      spm_pwlist_count: 0, // Store the count of entries
       isModalOpen: false,
       showError: false,
       showSuccess: false,
@@ -44,6 +45,7 @@ document.addEventListener("alpine:init", () => {
         const pwListStore = transaction.objectStore("pwlist");
         pwListStore.getAll().onsuccess = async (event) => {
           let pwList = event.target.result.reverse();
+          this.spm_pwlist_count = pwList.length; // Update the count
           let html = "";
           pwList.forEach((record) => {
             html += this.renderRecord(record);
