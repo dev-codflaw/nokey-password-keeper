@@ -84,7 +84,7 @@ body {
 header {
   position: fixed;
   width: 100%;
-  padding: 15px;
+  padding: 10px;
   background-color: var(--primary-color);
   color: var(--text-color);
   top: 0;
@@ -109,13 +109,15 @@ header input {
 /* List View */
 .list {
   padding: 16px;
+  margin-bottom: 15px;
 }
 
+
 .entry {
-  margin-bottom: 16px;
-  padding: 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  margin-bottom: 5px;
+  padding: 5px;
+  border: 2px solid #ddd;
+  border-radius: 7px;
 }
 
 .entry .url {
